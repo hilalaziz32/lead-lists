@@ -1,0 +1,130 @@
+@import "tailwindcss";
+
+:root {
+  --paper: #F7F6FB;
+  --card: #FFFFFF;
+  --ink: #0E0B1A;
+  --ink-2: #1A1530;
+  --border: #ECEAF3;
+  --border-strong: #DCD8EA;
+  --muted: #6E6A82;
+  --text: #1A1530;
+
+  --violet: #6938EF;
+  --violet-600: #5B2BE0;
+  --violet-700: #4A22BD;
+  --violet-50: #F4F0FF;
+  --violet-100: #E7DEFF;
+  --violet-200: #CFBDFF;
+
+  --emerald: #10B981;
+  --rose: #F43F5E;
+  --amber: #F59E0B;
+  --sky: #0EA5E9;
+}
+
+@theme inline {
+  --color-background: var(--paper);
+  --color-foreground: var(--text);
+  --color-card: var(--card);
+  --color-ink: var(--ink);
+  --color-border: var(--border);
+  --color-muted: var(--muted);
+  --color-violet: var(--violet);
+  --color-violet-50: var(--violet-50);
+  --color-violet-100: var(--violet-100);
+  --color-violet-600: var(--violet-600);
+  --color-violet-700: var(--violet-700);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+html, body {
+  background: var(--paper);
+  color: var(--text);
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  font-feature-settings: "ss01", "cv11";
+  -webkit-font-smoothing: antialiased;
+}
+
+.tabular { font-variant-numeric: tabular-nums; font-family: var(--font-geist-mono), ui-monospace, monospace; }
+
+.grain::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.35;
+  background-image:
+    radial-gradient(1200px 600px at 90% -10%, rgba(105, 56, 239, 0.08), transparent 60%),
+    radial-gradient(900px 500px at -10% 110%, rgba(105, 56, 239, 0.05), transparent 60%);
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+}
+
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 14px; border-radius: 10px;
+  font-size: 13px; font-weight: 500;
+  border: 1px solid var(--border-strong);
+  background: var(--card); color: var(--text);
+  cursor: pointer; transition: all 0.15s ease;
+}
+.btn:hover { background: var(--violet-50); border-color: var(--violet-200); }
+.btn-primary {
+  background: var(--violet); color: white; border-color: var(--violet);
+}
+.btn-primary:hover { background: var(--violet-600); border-color: var(--violet-600); }
+
+.input, .select {
+  width: 100%;
+  padding: 8px 12px; border-radius: 10px;
+  border: 1px solid var(--border-strong);
+  background: var(--card); color: var(--text);
+  font-size: 13px; outline: none;
+  transition: border-color 0.15s;
+}
+.input:focus, .select:focus { border-color: var(--violet); }
+
+.label { font-size: 11px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+
+.chip {
+  display: inline-flex; align-items: center;
+  padding: 2px 8px; border-radius: 999px;
+  font-size: 11px; font-weight: 500;
+  background: var(--violet-50); color: var(--violet-700);
+  border: 1px solid var(--violet-100);
+}
+.chip-emerald { background: #ECFDF5; color: #047857; border-color: #A7F3D0; }
+.chip-rose { background: #FFF1F2; color: #BE123C; border-color: #FECDD3; }
+.chip-amber { background: #FFFBEB; color: #B45309; border-color: #FDE68A; }
+.chip-muted { background: #F3F2F8; color: var(--muted); border-color: var(--border); }
+
+table.data { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.data th {
+  text-align: left; font-weight: 500; font-size: 11px;
+  color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em;
+  padding: 10px 14px; border-bottom: 1px solid var(--border);
+  background: var(--paper); position: sticky; top: 0;
+}
+table.data td {
+  padding: 12px 14px; border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+table.data tr:hover td { background: var(--violet-50); }
+table.data tr:last-child td { border-bottom: none; }
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.rise { animation: rise 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: #DCD8EA; border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: #C4BEE0; }
