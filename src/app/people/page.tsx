@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { Shell } from "@/components/Shell";
-import { Filters } from "@/components/Filters";
+import { FilterBar } from "@/components/FilterBar";
 import { Pagination } from "@/components/Pagination";
-import { fetchPeople, fetchFacets } from "@/lib/queries";
+import { fetchPeople, fetchFacets, parsePersonQuery } from "@/lib/queries";
+import { splitSource, EMPLOYEE_BUCKETS } from "@/lib/tags";
 
 export const dynamic = "force-dynamic";
 
@@ -12,19 +13,9 @@ export default async function PeoplePage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const sp = await searchParams;
-  const get = (k: string) => (typeof sp[k] === "string" ? (sp[k] as string) : undefined);
-  const page = parseInt(get("page") || "1");
+  const filters = parsePersonQuery(sp);
   const pageSize = 50;
-  const filters = {
-    q: get("q"),
-    company_id: get("company_id"),
-    client: get("client"),
-    email_status: get("email_status"),
-    phone_type: get("phone_type"),
-    source: get("source"),
-    page,
-    pageSize,
-  };
+  filters.pageSize = pageSize;
 
   const [{ rows, count, error }, facets] = await Promise.all([
     fetchPeople(filters),
@@ -39,27 +30,53 @@ export default async function PeoplePage({
         <span className="tabular">{count.toLocaleString()}</span> people matching current filters.
       </p>
 
-      <Filters
+      <FilterBar
         exportPath="/api/export/people"
         fields={[
-          { key: "q", label: "Search", type: "text", placeholder: "Name or email…" },
+          { kind: "text", key: "q", label: "Search", placeholder: "Name or email…" },
           {
-            key: "client", label: "Client (tag)", type: "select",
-            options: facets.clients.map((s) => ({ value: s, label: s })),
+            kind: "multi", key: "niche", label: "Niche",
+            options: facets.niches.map((n) => ({ value: n.value, label: n.value, count: n.count })),
           },
           {
-            key: "email_status", label: "Email status", type: "select",
-            options: facets.emailStatuses.map((s) => ({ value: s, label: s })),
+            kind: "multi", key: "source", label: "Source",
+            options: facets.sources.map((s) => ({ value: s.value, label: s.value, count: s.count })),
           },
           {
-            key: "phone_type", label: "Phone type", type: "select",
-            options: facets.phoneTypes.map((s) => ({ value: s, label: s })),
+            kind: "multi", key: "country", label: "Country (company)",
+            options: facets.countries.map((s) => ({ value: s, label: s })),
           },
           {
-            key: "source", label: "Source", type: "select",
-            options: facets.sources.map((s) => ({ value: s, label: s })),
+            kind: "multi", key: "employee", label: "Employee size (company)",
+            options: EMPLOYEE_BUCKETS.map((b) => ({ value: b.value, label: b.label })),
           },
-          { key: "company_id", label: "Company ID", type: "text", placeholder: "UUID…" },
+          {
+            kind: "multi", key: "industry", label: "Industry (company)",
+            options: facets.industries.map((s) => ({ value: s, label: s })),
+          },
+          {
+            kind: "select", key: "email_presence", label: "Email",
+            options: [
+              { value: "yes", label: "Not empty" },
+              { value: "no", label: "Empty" },
+            ],
+          },
+          {
+            kind: "select", key: "phone_presence", label: "Phone",
+            options: [
+              { value: "yes", label: "Not empty" },
+              { value: "no", label: "Empty" },
+            ],
+          },
+          {
+            kind: "multi", key: "email_status", label: "Email status",
+            options: ["ok", "catch_all", "invalid", "unknown"].map((s) => ({ value: s, label: s })),
+          },
+          {
+            kind: "multi", key: "phone_type", label: "Phone type",
+            options: ["mobile", "toll_free", "landline"].map((s) => ({ value: s, label: s })),
+          },
+          { kind: "text", key: "job_title", label: "Job title (comma-separated)", placeholder: "founder, CEO, owner" },
         ]}
       />
 
@@ -73,18 +90,20 @@ export default async function PeoplePage({
             <thead>
               <tr>
                 <th>Name</th><th>Title</th><th>Email</th><th>Phone</th><th>Company</th>
-                <th>Email status</th><th>Phone type</th><th>Updated</th>
+                <th>Source</th><th>Email status</th><th>Updated</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((p) => (
-                <tr key={p.id}>
+                <tr key={p.id} style={{ cursor: "pointer" }}>
                   <td style={{ fontWeight: 500 }}>
-                    {p.full_name || [p.first_name, p.last_name].filter(Boolean).join(" ") || "—"}
+                    <Link href={`/people/${p.id}`} style={{ color: "var(--violet-700)" }}>
+                      {p.full_name || [p.first_name, p.last_name].filter(Boolean).join(" ") || "—"}
+                    </Link>
                   </td>
-                  <td style={{ color: "var(--muted)" }}>{p.job_title || "—"}</td>
-                  <td className="tabular" style={{ fontSize: 12 }}>{p.email || "—"}</td>
-                  <td className="tabular" style={{ fontSize: 12 }}>{p.phone || "—"}</td>
+                  <td style={{ color: "var(--muted)" }}><Link href={`/people/${p.id}`}>{p.job_title || "—"}</Link></td>
+                  <td className="tabular" style={{ fontSize: 12 }}><Link href={`/people/${p.id}`}>{p.email || "—"}</Link></td>
+                  <td className="tabular" style={{ fontSize: 12 }}><Link href={`/people/${p.id}`}>{p.phone || "—"}</Link></td>
                   <td>
                     {p.companies ? (
                       <Link href={`/companies/${p.companies.id}`} style={{ color: "var(--violet-700)" }}>
@@ -92,10 +111,16 @@ export default async function PeoplePage({
                       </Link>
                     ) : p.company_name || "—"}
                   </td>
-                  <td>{p.email_status ? <StatusChip s={p.email_status} /> : "—"}</td>
-                  <td>{p.phone_type ? <span className="chip chip-muted">{p.phone_type}</span> : "—"}</td>
+                  <td>
+                    <Link href={`/people/${p.id}`} className="flex flex-wrap gap-1">
+                      {splitSource(p.source).length
+                        ? splitSource(p.source).map((t) => <span key={t} className="chip chip-muted">{t}</span>)
+                        : "—"}
+                    </Link>
+                  </td>
+                  <td><Link href={`/people/${p.id}`}>{p.email && p.email_status ? <StatusChip s={p.email_status} /> : "—"}</Link></td>
                   <td className="tabular" style={{ color: "var(--muted)" }}>
-                    {p.last_updated ? new Date(p.last_updated).toLocaleDateString() : "—"}
+                    <Link href={`/people/${p.id}`}>{p.last_updated ? new Date(p.last_updated).toLocaleDateString() : "—"}</Link>
                   </td>
                 </tr>
               ))}
@@ -107,7 +132,7 @@ export default async function PeoplePage({
         </div>
       </div>
 
-      <Pagination page={page} pageSize={pageSize} total={count} />
+      <Pagination page={filters.page || 1} pageSize={pageSize} total={count} />
     </Shell>
   );
 }
@@ -115,8 +140,8 @@ export default async function PeoplePage({
 function StatusChip({ s }: { s: string }) {
   const v = s.toLowerCase();
   const cls =
-    v.includes("valid") && !v.includes("in") ? "chip chip-emerald" :
-    v.includes("invalid") ? "chip chip-rose" :
-    v.includes("risky") || v.includes("catch") ? "chip chip-amber" : "chip chip-muted";
+    v === "ok" || v === "valid" ? "chip chip-emerald" :
+    v === "invalid" ? "chip chip-rose" :
+    v === "catch_all" || v === "risky" ? "chip chip-amber" : "chip chip-muted";
   return <span className={cls}>{s}</span>;
 }

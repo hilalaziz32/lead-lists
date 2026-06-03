@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { Shell } from "@/components/Shell";
 import { fetchCompany } from "@/lib/queries";
+import { filterCustomData } from "@/lib/customData";
+import { splitSource } from "@/lib/tags";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +13,7 @@ export default async function CompanyDetailPage({
 }) {
   const { id } = await params;
   const { company, peopleCount, people, error } = await fetchCompany(id);
+  const customEntries = filterCustomData(company?.custom_data, "company");
 
   return (
     <Shell active="companies">
@@ -33,13 +36,22 @@ export default async function CompanyDetailPage({
             <Field label="Revenue" value={company.revenue} />
             <Field label="Phone" value={company.phone} />
             <Field label="Location" value={[company.city, company.state, company.country].filter(Boolean).join(", ")} />
-            <Field label="Client" value={company.client} />
-            <Field label="Niche" value={company.niche} />
-            <Field label="Source" value={company.source} />
             <Field label="Quality tier" value={company.quality_tier} />
             <Field label="MX provider" value={company.mx_provider} />
             <Field label="Security gateway" value={company.security_gateway} />
             <Field label="Domain status" value={company.domain_status} />
+            <Field label="Updated" value={company.last_updated ? new Date(company.last_updated).toLocaleDateString() : null} />
+            <Field label="Created" value={company.created_at ? new Date(company.created_at).toLocaleDateString() : null} />
+            <Field
+              label="Source"
+              value={null}
+              custom={
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {splitSource(company.source).map((t) => <span key={t} className="chip chip-muted">{t}</span>)}
+                  {!splitSource(company.source).length && "—"}
+                </div>
+              }
+            />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
@@ -91,10 +103,10 @@ export default async function CompanyDetailPage({
             </div>
 
             <div className="card" style={{ padding: 20 }}>
-              <div className="label">Custom data</div>
-              {company.custom_data && Object.keys(company.custom_data).length ? (
-                <dl className="mt-3" style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "6px 14px", fontSize: 13 }}>
-                  {Object.entries(company.custom_data).map(([k, v]) => (
+              <div className="label">Enrichment data</div>
+              {customEntries.length ? (
+                <dl className="mt-3" style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "8px 14px", fontSize: 13 }}>
+                  {customEntries.map(([k, v]) => (
                     <>
                       <dt key={k + "k"} style={{ color: "var(--muted)" }}>{k}</dt>
                       <dd key={k + "v"} style={{ fontFamily: "var(--font-geist-mono), monospace", fontSize: 12, wordBreak: "break-word" }}>
@@ -104,16 +116,8 @@ export default async function CompanyDetailPage({
                   ))}
                 </dl>
               ) : (
-                <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 8 }}>No custom data.</div>
+                <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 8 }}>No enrichment data.</div>
               )}
-
-              <div className="mt-4 flex flex-col gap-1" style={{ fontSize: 12, color: "var(--muted)" }}>
-                {company.pushed_to_clay && (
-                  <div>Pushed to Clay {company.pushed_to_clay_at ? `· ${new Date(company.pushed_to_clay_at).toLocaleString()}` : ""}</div>
-                )}
-                {company.created_at && <div>Created {new Date(company.created_at).toLocaleString()}</div>}
-                {company.last_updated && <div>Updated {new Date(company.last_updated).toLocaleString()}</div>}
-              </div>
             </div>
           </div>
 
@@ -129,16 +133,20 @@ export default async function CompanyDetailPage({
             </div>
             <table className="data">
               <thead>
-                <tr><th>Name</th><th>Title</th><th>Email</th><th>Phone</th><th>Email status</th></tr>
+                <tr><th>Name</th><th>Title</th><th>Email</th><th>Phone</th><th>Status</th></tr>
               </thead>
               <tbody>
                 {people.map((p) => (
                   <tr key={p.id}>
-                    <td>{p.full_name || [p.first_name, p.last_name].filter(Boolean).join(" ") || "—"}</td>
+                    <td>
+                      <Link href={`/people/${p.id}`} style={{ color: "var(--violet-700)" }}>
+                        {p.full_name || [p.first_name, p.last_name].filter(Boolean).join(" ") || "—"}
+                      </Link>
+                    </td>
                     <td style={{ color: "var(--muted)" }}>{p.job_title || "—"}</td>
                     <td className="tabular" style={{ fontSize: 12 }}>{p.email || "—"}</td>
                     <td className="tabular" style={{ fontSize: 12 }}>{p.phone || "—"}</td>
-                    <td>{p.email_status ? <span className="chip chip-muted">{p.email_status}</span> : "—"}</td>
+                    <td>{p.email && p.email_status ? <span className="chip chip-muted">{p.email_status}</span> : "—"}</td>
                   </tr>
                 ))}
                 {!people.length && (
@@ -153,11 +161,11 @@ export default async function CompanyDetailPage({
   );
 }
 
-function Field({ label, value }: { label: string; value: string | number | null | undefined }) {
+function Field({ label, value, custom }: { label: string; value?: string | number | null; custom?: React.ReactNode }) {
   return (
     <div className="card" style={{ padding: 14 }}>
       <div className="label">{label}</div>
-      <div style={{ fontSize: 14, fontWeight: 500, marginTop: 4 }}>{value || "—"}</div>
+      {custom ? custom : <div style={{ fontSize: 14, fontWeight: 500, marginTop: 4 }}>{value || "—"}</div>}
     </div>
   );
 }

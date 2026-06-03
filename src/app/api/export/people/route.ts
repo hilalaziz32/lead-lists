@@ -1,22 +1,12 @@
 import { NextRequest } from "next/server";
-import { fetchPeople, toCsv } from "@/lib/queries";
+import { fetchPeople, parsePersonQuery, toCsv } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
-  const sp = req.nextUrl.searchParams;
-  const get = (k: string) => sp.get(k) || undefined;
-  const { rows } = await fetchPeople(
-    {
-      q: get("q"),
-      company_id: get("company_id"),
-      client: get("client"),
-      email_status: get("email_status"),
-      phone_type: get("phone_type"),
-      source: get("source"),
-    },
-    { all: true }
-  );
+  const sp: Record<string, string> = {};
+  req.nextUrl.searchParams.forEach((v, k) => { sp[k] = v; });
+  const { rows } = await fetchPeople(parsePersonQuery(sp), { all: true });
   const flat = rows.map((p) => ({
     id: p.id,
     first_name: p.first_name,
@@ -38,6 +28,10 @@ export async function GET(req: NextRequest) {
     company_id: p.company_id,
     company_name: p.companies?.company_name || p.company_name,
     company_domain: p.companies?.domain || p.domain,
+    company_industry: p.companies?.industry || null,
+    company_country: p.companies?.country || null,
+    company_employee_count: p.companies?.employee_count || null,
+    company_quality_tier: p.companies?.quality_tier || null,
     pushed_to_emailbison: p.pushed_to_emailbison,
     pushed_to_ghl: p.pushed_to_ghl,
     last_updated: p.last_updated,

@@ -67,5 +67,13 @@ export type Person = {
   custom_data: Record<string, unknown> | null;
   last_updated: string | null;
   created_at: string | null;
-  companies?: { id: string; company_name: string | null; domain: string | null } | null;
+  companies?: {
+    id: string;
+    company_name: string | null;
+    domain: string | null;
+    industry?: string | null;
+    country?: string | null;
+    employee_count?: number | null;
+    quality_tier?: string | null;
+  } | null;
 };

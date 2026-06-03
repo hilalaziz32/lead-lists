@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { Shell } from "@/components/Shell";
-import { Filters } from "@/components/Filters";
+import { FilterBar } from "@/components/FilterBar";
 import { Pagination } from "@/components/Pagination";
-import { fetchCompanies, fetchFacets } from "@/lib/queries";
+import { fetchCompanies, fetchFacets, parseCompanyQuery } from "@/lib/queries";
+import { splitSource, EMPLOYEE_BUCKETS } from "@/lib/tags";
 
 export const dynamic = "force-dynamic";
 
@@ -12,21 +13,9 @@ export default async function CompaniesPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const sp = await searchParams;
-  const get = (k: string) => (typeof sp[k] === "string" ? (sp[k] as string) : undefined);
-  const page = parseInt(get("page") || "1");
+  const filters = parseCompanyQuery(sp);
   const pageSize = 50;
-  const filters = {
-    q: get("q"),
-    client: get("client"),
-    niche: get("niche"),
-    source: get("source"),
-    quality_tier: get("quality_tier"),
-    industry: get("industry"),
-    from: get("from"),
-    to: get("to"),
-    page,
-    pageSize,
-  };
+  filters.pageSize = pageSize;
 
   const [{ rows, count, error }, facets] = await Promise.all([
     fetchCompanies(filters),
@@ -41,32 +30,30 @@ export default async function CompaniesPage({
         <span className="tabular">{count.toLocaleString()}</span> companies matching current filters.
       </p>
 
-      <Filters
+      <FilterBar
         exportPath="/api/export/companies"
         fields={[
-          { key: "q", label: "Search", type: "text", placeholder: "Name or domain…" },
+          { kind: "text", key: "q", label: "Search", placeholder: "Name or domain…" },
           {
-            key: "client", label: "Client", type: "select",
-            options: facets.clients.map((s) => ({ value: s, label: s })),
+            kind: "multi", key: "niche", label: "Niche",
+            options: facets.niches.map((n) => ({ value: n.value, label: n.value, count: n.count })),
           },
           {
-            key: "niche", label: "Niche", type: "select",
-            options: facets.niches.map((s) => ({ value: s, label: s })),
+            kind: "multi", key: "source", label: "Source",
+            options: facets.sources.map((s) => ({ value: s.value, label: s.value, count: s.count })),
           },
           {
-            key: "source", label: "Source", type: "select",
-            options: facets.sources.map((s) => ({ value: s, label: s })),
+            kind: "multi", key: "industry", label: "Industry",
+            options: facets.industries.map((s) => ({ value: s, label: s })),
           },
           {
-            key: "quality_tier", label: "Quality tier", type: "select",
-            options: facets.tiers.map((s) => ({ value: s, label: s })),
+            kind: "multi", key: "employee", label: "Employee size",
+            options: EMPLOYEE_BUCKETS.map((b) => ({ value: b.value, label: b.label })),
           },
           {
-            key: "industry", label: "Industry", type: "select",
-            options: facets.industries.slice(0, 200).map((s) => ({ value: s, label: s })),
+            kind: "multi", key: "country", label: "Country",
+            options: facets.countries.map((s) => ({ value: s, label: s })),
           },
-          { key: "from", label: "Updated from", type: "date" },
-          { key: "to", label: "Updated to", type: "date" },
         ]}
       />
 
@@ -86,43 +73,49 @@ export default async function CompaniesPage({
                 <th>Industry</th>
                 <th>Employees</th>
                 <th>Location</th>
-                <th>Client</th>
                 <th>Source</th>
-                <th>Tier</th>
+                <th>Quality tier</th>
                 <th>Updated</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((c) => (
-                <tr key={c.id}>
+                <tr key={c.id} style={{ cursor: "pointer" }}>
                   <td>
                     <Link href={`/companies/${c.id}`} style={{ color: "var(--violet-700)", fontWeight: 500 }}>
                       {c.company_name || "—"}
                     </Link>
                   </td>
-                  <td style={{ color: "var(--muted)" }}>{c.domain || "—"}</td>
-                  <td>{c.industry || "—"}</td>
-                  <td className="tabular">{c.employee_count?.toLocaleString() || "—"}</td>
                   <td style={{ color: "var(--muted)" }}>
-                    {[c.city, c.state, c.country].filter(Boolean).join(", ") || "—"}
+                    <Link href={`/companies/${c.id}`}>{c.domain || "—"}</Link>
                   </td>
-                  <td>{c.client ? <span className="chip">{c.client}</span> : "—"}</td>
-                  <td>{c.source ? <span className="chip chip-muted">{c.source}</span> : "—"}</td>
-                  <td>{c.quality_tier ? <TierChip tier={c.quality_tier} /> : "—"}</td>
+                  <td><Link href={`/companies/${c.id}`}>{c.industry || "—"}</Link></td>
+                  <td className="tabular"><Link href={`/companies/${c.id}`}>{c.employee_count?.toLocaleString() || "—"}</Link></td>
+                  <td style={{ color: "var(--muted)" }}>
+                    <Link href={`/companies/${c.id}`}>{[c.city, c.country].filter(Boolean).join(", ") || "—"}</Link>
+                  </td>
+                  <td>
+                    <Link href={`/companies/${c.id}`} className="flex flex-wrap gap-1">
+                      {splitSource(c.source).length
+                        ? splitSource(c.source).map((t) => <span key={t} className="chip chip-muted">{t}</span>)
+                        : "—"}
+                    </Link>
+                  </td>
+                  <td><Link href={`/companies/${c.id}`}>{c.quality_tier ? <TierChip tier={c.quality_tier} /> : "—"}</Link></td>
                   <td className="tabular" style={{ color: "var(--muted)" }}>
-                    {c.last_updated ? new Date(c.last_updated).toLocaleDateString() : "—"}
+                    <Link href={`/companies/${c.id}`}>{c.last_updated ? new Date(c.last_updated).toLocaleDateString() : "—"}</Link>
                   </td>
                 </tr>
               ))}
               {!rows.length && !error && (
-                <tr><td colSpan={9} style={{ textAlign: "center", padding: 40, color: "var(--muted)" }}>No companies match.</td></tr>
+                <tr><td colSpan={8} style={{ textAlign: "center", padding: 40, color: "var(--muted)" }}>No companies match.</td></tr>
               )}
             </tbody>
           </table>
         </div>
       </div>
 
-      <Pagination page={page} pageSize={pageSize} total={count} />
+      <Pagination page={filters.page || 1} pageSize={pageSize} total={count} />
     </Shell>
   );
 }
