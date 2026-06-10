@@ -1,5 +1,5 @@
 import { supabase, type Company, type Person } from "./supabase";
-import { splitSource, DATE_RE, bucketsToRanges, parseList } from "./tags";
+import { splitSource, DATE_RE, bucketsToRanges, parseList, isNicheTag } from "./tags";
 
 export type CompanyQuery = {
   q?: string;
@@ -8,6 +8,8 @@ export type CompanyQuery = {
   industries?: string[];
   countries?: string[];
   employeeBuckets?: string[];
+  employeeMin?: number;
+  employeeMax?: number;
   page?: number;
   pageSize?: number;
 };
@@ -19,6 +21,8 @@ export type PersonQuery = {
   industries?: string[];
   countries?: string[];
   employeeBuckets?: string[];
+  employeeMin?: number;
+  employeeMax?: number;
   emailPresence?: "any" | "yes" | "no";
   phonePresence?: "any" | "yes" | "no";
   emailStatuses?: string[];
@@ -76,7 +80,13 @@ export async function fetchCompanies(f: CompanyQuery, opts: { all?: boolean } = 
   if (f.sources?.length) q = q.or(sourceOr(f.sources));
   if (f.industries?.length) q = q.in("industry", f.industries);
   if (f.countries?.length) q = q.in("country", f.countries);
-  if (f.employeeBuckets?.length) q = q.or(employeeOr(f.employeeBuckets));
+  const hasCustomEmp = f.employeeMin !== undefined || f.employeeMax !== undefined;
+  if (hasCustomEmp) {
+    if (f.employeeMin !== undefined) q = q.gte("employee_count", f.employeeMin);
+    if (f.employeeMax !== undefined) q = q.lte("employee_count", f.employeeMax);
+  } else if (f.employeeBuckets?.length) {
+    q = q.or(employeeOr(f.employeeBuckets));
+  }
 
   q = q.order("last_updated", { ascending: false, nullsFirst: false });
   if (!opts.all) q = q.range((page - 1) * pageSize, page * pageSize - 1);
@@ -112,7 +122,11 @@ export async function fetchPeople(f: PersonQuery, opts: { all?: boolean } = {}) 
   // company-linked filters
   if (f.industries?.length) q = q.in("companies.industry", f.industries);
   if (f.countries?.length) q = q.in("companies.country", f.countries);
-  if (f.employeeBuckets?.length) {
+  const hasCustomEmpP = f.employeeMin !== undefined || f.employeeMax !== undefined;
+  if (hasCustomEmpP) {
+    if (f.employeeMin !== undefined) q = q.gte("companies.employee_count", f.employeeMin);
+    if (f.employeeMax !== undefined) q = q.lte("companies.employee_count", f.employeeMax);
+  } else if (f.employeeBuckets?.length) {
     const ranges = bucketsToRanges(f.employeeBuckets);
     const or = ranges
       .map((r) => r.max === null ? `employee_count.gte.${r.min}` : `and(employee_count.gte.${r.min},employee_count.lte.${r.max})`)
@@ -195,7 +209,7 @@ export async function fetchFacets(): Promise<Facets> {
   (tagsR.data || []).forEach((r: { tags: string[] | null }) => {
     const seen = new Set<string>();
     (r.tags || []).forEach((t) => {
-      if (!t || DATE_RE.test(t) || clientSet.has(t) || seen.has(t)) return;
+      if (!isNicheTag(t, clientSet) || seen.has(t)) return;
       seen.add(t);
       nicheCounts.set(t, (nicheCounts.get(t) || 0) + 1);
     });
@@ -225,6 +239,12 @@ export async function fetchFacets(): Promise<Facets> {
   };
 }
 
+function parseInt0(v: string | undefined): number | undefined {
+  if (v === undefined || v === "") return undefined;
+  const n = parseInt(v);
+  return Number.isFinite(n) ? n : undefined;
+}
+
 export function parseCompanyQuery(sp: Record<string, string | string[] | undefined>): CompanyQuery {
   const get = (k: string) => (typeof sp[k] === "string" ? (sp[k] as string) : undefined);
   return {
@@ -234,6 +254,8 @@ export function parseCompanyQuery(sp: Record<string, string | string[] | undefin
     industries: parseList(get("industry")),
     countries: parseList(get("country")),
     employeeBuckets: parseList(get("employee")),
+    employeeMin: parseInt0(get("emp_min")),
+    employeeMax: parseInt0(get("emp_max")),
     page: parseInt(get("page") || "1"),
   };
 }
@@ -249,6 +271,8 @@ export function parsePersonQuery(sp: Record<string, string | string[] | undefine
     industries: parseList(get("industry")),
     countries: parseList(get("country")),
     employeeBuckets: parseList(get("employee")),
+    employeeMin: parseInt0(get("emp_min")),
+    employeeMax: parseInt0(get("emp_max")),
     emailPresence: ep === "yes" || ep === "no" ? ep : "any",
     phonePresence: pp === "yes" || pp === "no" ? pp : "any",
     emailStatuses: parseList(get("email_status")),

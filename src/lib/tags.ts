@@ -10,12 +10,20 @@ export function extractClient(tags: string[] | null | undefined): string | null 
   return tags[0] || null;
 }
 
+export function isNicheTag(t: string | null | undefined, clients: Set<string>): boolean {
+  if (!t) return false;
+  if (DATE_RE.test(t)) return false;
+  if (t.includes(":")) return false;
+  if (clients.has(t)) return false;
+  return true;
+}
+
 export function extractNiches(
   tags: string[] | null | undefined,
   clients: Set<string>
 ): string[] {
   if (!tags) return [];
-  return tags.filter((t) => !!t && !DATE_RE.test(t) && !clients.has(t));
+  return tags.filter((t) => isNicheTag(t, clients));
 }
 
 export function parseList(v: string | undefined): string[] {

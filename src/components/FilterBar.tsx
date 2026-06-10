@@ -7,7 +7,8 @@ import { MultiSelect } from "./MultiSelect";
 export type Field =
   | { kind: "text"; key: string; label: string; placeholder?: string }
   | { kind: "multi"; key: string; label: string; options: { value: string; label: string; count?: number }[]; placeholder?: string }
-  | { kind: "select"; key: string; label: string; options: { value: string; label: string }[] };
+  | { kind: "select"; key: string; label: string; options: { value: string; label: string }[] }
+  | { kind: "range"; minKey: string; maxKey: string; label: string; placeholder?: string };
 
 export function FilterBar({ fields, exportPath }: { fields: Field[]; exportPath: string }) {
   const router = useRouter();
@@ -32,6 +33,9 @@ export function FilterBar({ fields, exportPath }: { fields: Field[]; exportPath:
         {fields.map((f) => {
           if (f.kind === "text") {
             return <TextField key={f.key} field={f} sp={sp} update={update} />;
+          }
+          if (f.kind === "range") {
+            return <RangeField key={f.minKey} field={f} sp={sp} update={update} />;
           }
           if (f.kind === "select") {
             return (
@@ -71,6 +75,48 @@ export function FilterBar({ fields, exportPath }: { fields: Field[]; exportPath:
           <button className="btn" onClick={clear}>Clear all</button>
           <a className="btn btn-primary" href={exportUrl}>Export CSV</a>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function RangeField({
+  field,
+  sp,
+  update,
+}: {
+  field: { kind: "range"; minKey: string; maxKey: string; label: string; placeholder?: string };
+  sp: URLSearchParams;
+  update: (k: string, v: string) => void;
+}) {
+  const initMin = sp.get(field.minKey) || "";
+  const initMax = sp.get(field.maxKey) || "";
+  const [min, setMin] = useState(initMin);
+  const [max, setMax] = useState(initMax);
+  useEffect(() => setMin(initMin), [initMin]);
+  useEffect(() => setMax(initMax), [initMax]);
+  useEffect(() => {
+    const t = setTimeout(() => { if (min !== initMin) update(field.minKey, min); }, 350);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [min]);
+  useEffect(() => {
+    const t = setTimeout(() => { if (max !== initMax) update(field.maxKey, max); }, 350);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [max]);
+  return (
+    <div>
+      <div className="label" style={{ marginBottom: 6 }}>{field.label}</div>
+      <div className="flex gap-2">
+        <input
+          className="input" type="number" min={0} placeholder="Min"
+          value={min} onChange={(e) => setMin(e.target.value)}
+        />
+        <input
+          className="input" type="number" min={0} placeholder="Max"
+          value={max} onChange={(e) => setMax(e.target.value)}
+        />
       </div>
     </div>
   );

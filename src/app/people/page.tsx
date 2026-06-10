@@ -50,6 +50,7 @@ export default async function PeoplePage({
             kind: "multi", key: "employee", label: "Employee size (company)",
             options: EMPLOYEE_BUCKETS.map((b) => ({ value: b.value, label: b.label })),
           },
+          { kind: "range", minKey: "emp_min", maxKey: "emp_max", label: "Custom employee range" },
           {
             kind: "multi", key: "industry", label: "Industry (company)",
             options: facets.industries.map((s) => ({ value: s, label: s })),
